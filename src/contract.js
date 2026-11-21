@@ -5,7 +5,8 @@ export const BANK_ABI = [
   "function withdraw(uint256 amount) public",
   "function checkBlance() public view returns (uint256 balance)",
   "event Deposit(address indexed owner, uint amount)",
-  "event Withdraw(address indexed owner, uint amount)"
+  "event Withdraw(address indexed owner, uint amount)",
 ];
 
 export const BANK_ADDRESS = import.meta.env.VITE_BANK_CONTRACT_ADDRESS || "";
+export const INFURA_RPC_URL = import.meta.env.VITE_INFURA_RPC_URL || "";

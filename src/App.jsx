@@ -11,7 +11,7 @@ import {
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
-import { BANK_ABI, BANK_ADDRESS } from "./contract";
+import { BANK_ABI, BANK_ADDRESS, INFURA_RPC_URL } from "./contract";
 
 const STUDENT_ID = "66050217"; // Replace with your complete student ID if 66 is only a prefix.
 const STUDENT_NAME = "กัลยรัตน์ ถิ่นหาญวงศ์";
@@ -92,6 +92,28 @@ export default function App() {
     }
   }
 
+  function getInfuraProvider() {
+    if (!INFURA_RPC_URL)
+      throw new Error("กรุณากำหนด VITE_INFURA_RPC_URL ใน .env");
+    return new ethers.JsonRpcProvider(INFURA_RPC_URL, 11155111);
+  }
+
+  async function testInfuraConnection() {
+    try {
+      const block = await getInfuraProvider().getBlockNumber();
+      setNotice({
+        type: "success",
+        text: `Infura เชื่อมต่อสำเร็จ (Block ${block})`,
+      });
+    } catch (error) {
+      setNotice({
+        type: "error",
+        text:
+          error.shortMessage || error.message || "เชื่อมต่อ Infura ไม่สำเร็จ",
+      });
+    }
+  }
+
   async function getBankContract(withSigner = false) {
     if (
       !BANK_ADDRESS ||
@@ -102,33 +124,29 @@ export default function App() {
         "ยังไม่ได้กำหนด Contract Address กรุณาใส่ Address ที่ Deploy บน Sepolia ในไฟล์ .env",
       );
     }
-    const provider = await getProvider();
-    const runner = withSigner ? await provider.getSigner() : provider;
+    const runner = withSigner
+      ? await (await getProvider()).getSigner()
+      : getInfuraProvider();
     return new ethers.Contract(BANK_ADDRESS, BANK_ABI, runner);
   }
 
-  async function refreshBalance() {
+  async function refreshBalance(showNotice = true) {
     try {
       if (!account) return;
-
-      await ensureSepolia();
-
-      // ใช้ Signer เพื่ออ่านยอดของ Wallet ที่เชื่อมต่ออยู่
-      const contract = await getBankContract(true);
-
-      const value = await contract.checkBlance();
-
-      // แปลง Wei เป็น ETH และแสดงทศนิยม 6 ตำแหน่ง
+      const contract = await getBankContract(false);
+      // checkBlance() uses msg.sender; eth_call's from sets the simulated caller.
+      const value = await contract.checkBlance({ from: account });
       setBalance(Number(ethers.formatEther(value)).toFixed(6));
-
-      setNotice({
-        type: "success",
-        text: "อัปเดตยอดเงินสำเร็จ",
-      });
+      if (showNotice) {
+        setNotice({ type: "success", text: "อ่านยอดเงินผ่าน Infura สำเร็จ" });
+      }
     } catch (error) {
       setNotice({
         type: "error",
-        text: error.shortMessage || error.message || "อ่านยอดเงินไม่สำเร็จ",
+        text:
+          error.shortMessage ||
+          error.message ||
+          "อ่านยอดเงินผ่าน Infura ไม่สำเร็จ",
       });
     }
   }
@@ -151,7 +169,7 @@ export default function App() {
       await tx.wait();
       setDepositAmount("");
       setNotice({ type: "success", text: "ฝากเงินสำเร็จ" });
-      await refreshBalance();
+      await refreshBalance(false);
     } catch (error) {
       setNotice({
         type: "error",
@@ -183,7 +201,7 @@ export default function App() {
       await tx.wait();
       setWithdrawAmount("");
       setNotice({ type: "success", text: "ถอนเงินสำเร็จ" });
-      await refreshBalance();
+      await refreshBalance(false);
     } catch (error) {
       setNotice({
         type: "error",
@@ -222,7 +240,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (account) refreshBalance();
+    if (account) refreshBalance(false);
   }, [account]);
 
   const copyAddress = async () => {
@@ -247,6 +265,24 @@ export default function App() {
           <span className="dot" /> Sepolia Testnet
         </span>
       </nav>
+
+      <div
+        style={{
+          padding: "0 0 12px",
+          display: "flex",
+          justifyContent: "flex-end",
+        }}
+      >
+        {/* <button
+          type="button"
+          className="icon-button"
+          onClick={testInfuraConnection}
+          title="ทดสอบ Infura RPC"
+          style={{ width: "auto", padding: "0 12px", gap: 6 }}
+        >
+          <RefreshCw size={16} /> ทดสอบ Infura
+        </button> */}
+      </div>
 
       <section className="hero">
         <div>
